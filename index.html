@@ -80,6 +80,12 @@
       resize: vertical;
       min-height: 60px;
     }
+    .success {
+      color: #2a7a2a;
+      font-weight: bold;
+      margin-top: 20px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -94,7 +100,6 @@
       <input type="text" id="name" placeholder="Name">
     </div>
     <button class="btn-primary" onclick="checkGuest()">Send</button>
-
     <div id="result" class="result hidden"></div>
 
     <div id="confirm" class="hidden">
@@ -103,12 +108,25 @@
       <button class="btn-secondary" onclick="confirmAttendance(false)">NO, unfortunately I won’t</button>
     </div>
 
-    <div id="message-section" class="hidden">
+    <form id="wish-form" class="hidden">
       <label for="wish">Leave a message for the couple:</label>
       <textarea id="wish" placeholder="Write your wishes here..."></textarea>
+      <button class="btn-primary" type="submit" id="sendWishBtn">Send my wishes</button>
+    </form>
+    <div id="successMsg" class="success hidden">
+      Your wishes have been sent. You can now download your reservation card below.
+    </div>
+    <div id="download-section" class="hidden">
       <button class="btn-primary" onclick="downloadPDF()">📄 Download my reservation card</button>
     </div>
   </div>
+
+  <!-- Hidden Formspree integration -->
+  <form id="hidden-form" action="https://formspree.io/f/xdorqjga" method="POST" class="hidden">
+    <input type="hidden" name="name">
+    <input type="hidden" name="attendance">
+    <input type="hidden" name="wish">
+  </form>
 
   <script>
     const { jsPDF } = window.jspdf;
@@ -165,6 +183,7 @@
     ];
 
     let currentGuest = null;
+    let attendanceStatus = null;
 
     function normalize(str) {
       return str.trim().toLowerCase();
@@ -174,18 +193,18 @@
       const input = document.getElementById("name").value;
       const result = document.getElementById("result");
       const confirmBox = document.getElementById("confirm");
-      const messageSection = document.getElementById("message-section");
-
+      const wishForm = document.getElementById("wish-form");
       result.classList.add("hidden");
       confirmBox.classList.add("hidden");
-      messageSection.classList.add("hidden");
+      wishForm.classList.add("hidden");
+      document.getElementById("download-section").classList.add("hidden");
+      document.getElementById("successMsg").classList.add("hidden");
 
       if (!input) {
         alert("Please enter a name.");
         return;
       }
 
-      // Flexible search
       const found = guests.find(g => normalize(input).includes(normalize(g.name)) || normalize(g.name).includes(normalize(input)));
 
       if (found) {
@@ -203,25 +222,38 @@
 
     function confirmAttendance(isYes) {
       if (!currentGuest) return;
-      const messageSection = document.getElementById("message-section");
-      if (isYes) {
-        messageSection.classList.remove("hidden");
-      } else {
-        alert("Thank you, we have noted that you cannot attend.");
-      }
+      const wishForm = document.getElementById("wish-form");
+      attendanceStatus = isYes ? "Attending" : "Not attending";
+      wishForm.classList.remove("hidden");
     }
+
+    document.getElementById("wish-form").addEventListener("submit", function(e) {
+      e.preventDefault();
+      if (!currentGuest) return;
+      // Fill hidden form
+      const hiddenForm = document.getElementById("hidden-form");
+      hiddenForm.elements["name"].value = currentGuest.name;
+      hiddenForm.elements["attendance"].value = attendanceStatus;
+      hiddenForm.elements["wish"].value = document.getElementById("wish").value;
+      // Send to Formspree
+      fetch(hiddenForm.action, {
+        method: "POST",
+        headers: { "Accept": "application/json" },
+        body: new FormData(hiddenForm)
+      }).then(r => {
+        document.getElementById("successMsg").classList.remove("hidden");
+        document.getElementById("download-section").classList.remove("hidden");
+        document.getElementById("wish-form").classList.add("hidden");
+      });
+    });
 
     function downloadPDF() {
       if (!currentGuest) return;
       const wish = document.getElementById("wish").value;
-
       const doc = new jsPDF();
-
-      // Colors
       const green = [107,123,89];
       const burgundy = [96,12,12];
 
-      // Header background
       doc.setFillColor(...burgundy);
       doc.rect(0,0,210,40,"F");
 
@@ -229,7 +261,6 @@
       doc.setTextColor(255,255,255);
       doc.text("Darnelle & Donovan", 105, 25, {align:"center"});
 
-      // Content
       doc.setTextColor(...burgundy);
       doc.setFontSize(18);
       doc.text("Reservation Card", 105, 60, {align:"center"});
