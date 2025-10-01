@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>RSVP - Darnelle & Donovan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f9f9f9;
+      color: #333;
+    }
+    header {
+      background: #600C0C;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2rem;
+    }
+    .lang-switch {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 30px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    input, textarea, button, select {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      transition: 0.3s;
+      margin-top: 10px;
+    }
+    .btn-primary {
+      background: #6B7B59;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #556645;
+    }
+    .btn-secondary {
+      background: #600C0C;
+      color: white;
+    }
+    .btn-secondary:hover {
+      background: #400808;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 10px;
+      background: #f1f1f1;
+    }
+    .family-list {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .hidden { display: none; }
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.5);
+      z-index: 99;
+    }
+    .popup {
+      display: none;
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      background: #fff;
+      border: 2px solid #6B7B59;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      padding: 30px;
+      z-index: 100;
+      min-width: 300px;
+      text-align: center;
+    }
+    .popup button {
+      margin-top: 20px;
+      width: auto;
+    }
+    @media (max-width: 600px) {
+      .container { margin: 5px; padding: 5px; }
+      header { padding: 10px; font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <button class="lang-switch" id="switch-lang">EN</button>
+    <h1 id="title">RSVP — Darnelle & Donovan</h1>
+    <p id="subtitle">Merci de confirmer votre présence à notre mariage</p>
+  </header>
+
+  <div class="container">
+    <form id="rsvp-form">
+      <div class="form-group">
+        <label for="name" id="label-name">Entrez votre nom complet :</label>
+        <input type="text" id="name" name="name" required autocomplete="off" list="name-suggestions" aria-required="true">
+        <datalist id="name-suggestions"></datalist>
+      </div>
+      <div class="form-group">
+        <label for="email" id="label-email">Email (optionnel) :</label>
+        <input type="email" id="email" name="email" autocomplete="off">
+      </div>
+      <button class="btn-primary" type="submit" id="send-btn">Envoyer</button>
+    </form>
+
+    <div id="result" class="result hidden" aria-live="polite"></div>
+
+    <div id="confirm" class="hidden">
+      <p id="confirm-question">Confirmez-vous votre présence ?</p>
+      <button class="btn-primary" id="yes-btn">OUI, je serai présent(e)</button>
+      <button class="btn-secondary" id="no-btn">NON, malheureusement je ne pourrai pas venir</button>
+    </div>
+
+    <form id="wish-form" class="hidden">
+      <label for="wish" id="label-wish">Laissez un message de vœux pour les mariés :</label>
+      <textarea id="wish" name="wish" placeholder="Écrivez vos vœux ici..."></textarea>
+      <button class="btn-primary" type="button" id="pdf-btn">📄 Télécharger ma carte de réservation</button>
+      <button class="btn-primary" type="submit" id="confirm-btn">Confirmer ma réponse</button>
+    </form>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+  <div class="popup" id="popup" role="dialog" aria-modal="true" aria-labelledby="popup-message">
+    <p id="popup-message"></p>
+    <button class="btn-primary" id="close-popup">OK</button>
+  </div>
+
+  <!-- Formspree integration -->
+  <form id="hidden-form" action="https://formspree.io/f/xdorqjga" method="POST" class="hidden">
+    <input type="hidden" name="name">
+    <input type="hidden" name="email">
+    <input type="hidden" name="attendance">
+    <input type="hidden" name="wish">
+  </form>
+  
+  <script>
+    // Traductions
+    const translations = {
+      fr: {
+        title: "RSVP — Darnelle & Donovan",
+        subtitle: "Merci de confirmer votre présence à notre mariage",
+        labelName: "Entrez votre nom complet :",
+        labelEmail: "Email (optionnel) :",
+        sendBtn: "Envoyer",
+        confirmQuestion: "Confirmez-vous votre présence ?",
+        yesBtn: "OUI, je serai présent(e)",
+        noBtn: "NON, malheureusement je ne pourrai pas venir",
+        labelWish: "Laissez un message de vœux pour les mariés :",
+        pdfBtn: "📄 Télécharger ma carte de réservation",
+        confirmBtn: "Confirmer ma réponse",
+        popupYes: "Merci pour votre confirmation ! Nous avons hâte de vous voir.",
+        popupNo: "Merci, nous avons noté que vous ne pourrez pas assister.",
+        popupSent: "Votre réponse a bien été enregistrée, merci !"
+      },
+      en: {
+        title: "RSVP — Darnelle & Donovan",
+        subtitle: "Thank you for confirming your attendance at our wedding",
+        labelName: "Enter your full name:",
+        labelEmail: "Email (optional):",
+        sendBtn: "Send",
+        confirmQuestion: "Do you confirm your attendance?",
+        yesBtn: "YES, I will attend",
+        noBtn: "NO, unfortunately I won’t",
+        labelWish: "Leave a message for the couple:",
+        pdfBtn: "📄 Download my reservation card",
+        confirmBtn: "Confirm my response",
+        popupYes: "Thank you for your confirmation! We look forward to seeing you.",
+        popupNo: "Thank you, we have noted that you cannot attend.",
+        popupSent: "Your response has been recorded, thank you!"
+      }
+    };
+
+    let lang = navigator.language.startsWith("en") ? "en" : "fr";
+    function applyTranslations() {
+      document.getElementById("title").textContent = translations[lang].title;
+      document.getElementById("subtitle").textContent = translations[lang].subtitle;
+      document.getElementById("label-name").textContent = translations[lang].labelName;
+      document.getElementById("label-email").textContent = translations[lang].labelEmail;
+      document.getElementById("send-btn").textContent = translations[lang].sendBtn;
+      document.getElementById("confirm-question").textContent = translations[lang].confirmQuestion;
+      document.getElementById("yes-btn").textContent = translations[lang].yesBtn;
+      document.getElementById("no-btn").textContent = translations[lang].noBtn;
+      document.getElementById("label-wish").textContent = translations[lang].labelWish;
+      document.getElementById("pdf-btn").textContent = translations[lang].pdfBtn;
+      document.getElementById("confirm-btn").textContent = translations[lang].confirmBtn;
+      document.getElementById("switch-lang").textContent = lang === "fr" ? "EN" : "FR";
+    }
+    applyTranslations();
+
+    document.getElementById("switch-lang").onclick = function() {
+      lang = lang === "fr" ? "en" : "fr";
+      applyTranslations();
+    };
+
+    // Liste des invités (Isaac test & admeus test ajoutés)
+    const guests = [
+      {name:"Moraima Lys Colimon", seats:1, family:["Moraima Lys Colimon"]},
+      {name:"Phenite Thermilien", seats:1, family:["Phenite Thermilien"]},
+      {name:"Taelle Chery", seats:1, family:["Taelle Chery"]},
+      {name:"Roseline Pierre", seats:1, family:["Roseline Pierre"]},
+      {name:"Berthold Victor", seats:1, family:["Berthold Victor"]},
+      {name:"Balnave Sarette", seats:4, family:["Marie Fiance Sarette","Mehola Sarette","Noah Sarette","Balnave Sarette"]},
+      {name:"Marah Mondesir", seats:1, family:["Marah Mondesir"]},
+      {name:"Bebeto Labady", seats:2, family:["Bebeto Labady","Naomie Labady"]},
+      {name:"Sebastien Pierre", seats:1, family:["Sebastien Pierre"]},
+      {name:"Judith Sanon", seats:3, family:["Marvein Sanon","Miguel Sanon","Judith Sanon"]},
+      {name:"Erland Sanon", seats:1, family:["Erland Sanon"]},
+      {name:"Melchior Cyprien", seats:2, family:["Melchior Cyprien","Erna Cyprien"]},
+      {name:"Nezilia Cayard", seats:1, family:["Nezilia Cayard"]},
+      {name:"Nery Cayard", seats:1, family:["Nery Cayard"]},
+      {name:"Yolette Beauvoir", seats:2, family:["Beauvoir Duthil","Yolette Duthil"]},
+      {name:"Evein Durandis", seats:2, family:["Perette Durandis","Evein Durandis"]},
+      {name:"Renel Durandis", seats:4, family:["Renel Durandis","Gessie Durandis","Jason Durandis","Joana Durandis"]},
+      {name:"Rose Gaensly Extrat", seats:1, family:["Rose Gaensly Extrat"]},
+      {name:"Nelly Begein", seats:1, family:["Nelly Begein"]},
+      {name:"Richard Begein", seats:4, family:["Richard Begein","Angeline Begein","Ivan Begein","Jonathan Begein"]},
+      {name:"Saul Lelene", seats:2, family:["Saul Lelene","Saul Michelet"]},
+      {name:"Grandma Tessier", seats:1, family:["Grandma Tessier"]},
+      {name:"Marjorie Samedi", seats:2, family:["Marjorie Samedi","Jaelle Samedy"]},
+      {name:"Daniel Samedi", seats:2, family:["Daniel Samedi","Jasmine Samedi"]},
+      {name:"Jean Edward Cayard", seats:1, family:["Jean Edward Cayard"]},
+      {name:"Marie Josée Turenne", seats:1, family:["Marie Josée Turenne"]},
+      {name:"Raymonde Turenne", seats:1, family:["Raymonde Turenne"]},
+      {name:"Lordure Inera", seats:1, family:["Lordure Inera"]},
+      {name:"Scherly Etienne", seats:2, family:["Scherly Etienne","Bryan Etienne"]},
+      {name:"Perla Mbeya", seats:2, family:["Perla Mbeya","Abram Mbeya"]},
+      {name:"Claude Cayard", seats:1, family:["Claude Cayard"]},
+      {name:"Karly Cayard", seats:1, family:["Karly Cayard"]},
+      {name:"Tamara Cayard", seats:1, family:["Tamara Cayard"]},
+      {name:"Myrtha Vieux", seats:1, family:["Myrtha Vieux"]},
+      {name:"Francesca Lima", seats:1, family:["Francesca Lima"]},
+      {name:"Ann Kristel Deronvil", seats:1, family:["Ann Kristel Deronvil"]},
+      {name:"Barbara Pierre", seats:4, family:["Barbara Pierre","Adamael Pierre","Germson Pierre","Maude Marlie Pierre"]},
+      {name:"Jennifer Alexis Ducheine", seats:2, family:["Jennifer Alexis","Le Duc Ducheine"]},
+      {name:"Jude Altenor", seats:1, family:["Jude Altenor"]},
+      {name:"Bidley Beauvin", seats:1, family:["Bidley Beauvin"]},
+      {name:"Jean Esdras", seats:1, family:["Jean Esdras"]},
+      {name:"Doris Doleyres", seats:1, family:["Doris Doleyres"]},
+      {name:"Marjorie Dimanche", seats:4, family:["Marjorie","Winston","Nathaniel","Aniel"]},
+      {name:"Emmanuella Moyo", seats:2, family:["Christian Moyo","Emmanuella Moyo"]},
+      {name:"Yoletta Duthil", seats:1, family:["Yoletta Duthil"]},
+      {name:"Claire Johnson", seats:1, family:["Claire Johnson"]},
+      {name:"Tatie Myrlande", seats:1, family:["Tatie Myrlande"]},
+      {name:"Isaac test", seats:1, family:["Isaac test"]},
+      {name:"admeus test", seats:1, family:["admeus test"]}
+    ];
+    const guestNames = guests.map(g => g.name);
+
+    // Autocomplete
+    const nameInput = document.getElementById("name");
+    const nameSuggestions = document.getElementById("name-suggestions");
+    nameInput.addEventListener("input", function() {
+      const val = this.value.toLowerCase();
+      nameSuggestions.innerHTML = "";
+      guestNames.filter(n => n.toLowerCase().includes(val)).forEach(n => {
+        const opt = document.createElement("option");
+        opt.value = n;
+        nameSuggestions.appendChild(opt);
+      });
+    });
+
+    let currentGuest = null;
+    let attendanceStatus = null;
+
+    // Form submit (vérif. invité)
+    document.getElementById("rsvp-form").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const input = nameInput.value.trim();
+      const email = document.getElementById("email").value.trim();
+      const result = document.getElementById("result");
+      const confirmBox = document.getElementById("confirm");
+      const wishForm = document.getElementById("wish-form");
+      result.classList.add("hidden");
+      confirmBox.classList.add("hidden");
+      wishForm.classList.add("hidden");
+
+      if (!input) {
+        alert(lang === "fr" ? "Veuillez entrer un nom." : "Please enter a name.");
+        return;
+      }
+      // Recherche flexible
+      const found = guests.find(g => input.toLowerCase().includes(g.name.toLowerCase()) || g.name.toLowerCase().includes(input.toLowerCase()));
+      if (found) {
+        currentGuest = found;
+        let familyHtml = "";
+        if (found.family.length > 1) {
+          familyHtml = (lang === "fr" ? "Famille" : "Family") + ": <ul class='family-list'>" + found.family.map(m => `<li>${m}</li>`).join("") + "</ul>";
+        }
+        result.innerHTML = `<strong>${found.name}</strong><br>
+          ${lang === "fr" ? "Nombre de sièges" : "Seats reserved"}: ${found.seats}<br>${familyHtml}`;
+        result.classList.remove("hidden");
+        confirmBox.classList.remove("hidden");
+      } else {
+        result.innerHTML = lang === "fr" ? "⚠️ Désolé, ce nom n'est pas dans la liste des invités." : "⚠️ Sorry, this name is not on the guest list.";
+        result.classList.remove("hidden");
+      }
+    });
+
+    document.getElementById("yes-btn").onclick = function() {
+      attendanceStatus = lang === "fr" ? "Présent" : "Attending";
+      document.getElementById("wish-form").classList.remove("hidden");
+      showPopup(translations[lang].popupYes);
+    };
+
+    document.getElementById("no-btn").onclick = function() {
+      attendanceStatus = lang === "fr" ? "Absent" : "Not attending";
+      document.getElementById("wish-form").classList.remove("hidden");
+      showPopup(translations[lang].popupNo);
+    };
+
+    // PDF
+    document.getElementById("pdf-btn").onclick = function() {
+      if (!currentGuest) return;
+      const wish = document.getElementById("wish").value;
+      const doc = new jsPDF();
+      const green = [107,123,89];
+      const burgundy = [96,12,12];
+      doc.setFillColor(...burgundy);
+      doc.rect(0,0,210,40,"F");
+      doc.setFontSize(22);
+      doc.setTextColor(255,255,255);
+      doc.text("Darnelle & Donovan", 105, 25, {align:"center"});
+      doc.setTextColor(...burgundy);
+      doc.setFontSize(18);
+      doc.text(lang === "fr" ? "Carte de Réservation" : "Reservation Card", 105, 60, {align:"center"});
+      doc.setFontSize(14);
+      doc.setTextColor(0,0,0);
+      doc.text(`${lang === "fr" ? "Invité" : "Guest"} : ${currentGuest.name}`, 20, 80);
+      doc.text(`${lang === "fr" ? "Nombre de sièges" : "Seats reserved"} : ${currentGuest.seats}`, 20, 95);
+      if (currentGuest.family.length > 1) {
+        doc.text(lang === "fr" ? "Famille :" : "Family:", 20, 110);
+        currentGuest.family.forEach((m,i) => {
+          doc.text(`- ${m}`, 30, 120 + i*10);
+        });
+      }
+      if (wish.trim() !== "") {
+        doc.setTextColor(...green);
+        doc.text(lang === "fr" ? "Message de vœux :" : "Message:", 20, 200);
+        doc.setTextColor(0,0,0);
+        doc.setFontSize(12);
+        doc.text(wish, 20, 210, {maxWidth:170});
+      }
+      doc.save(`Reservation_${currentGuest.name}.pdf`);
+    };
+
+    // Confirmation (envoi Formspree)
+    document.getElementById("wish-form").onsubmit = function(e) {
+      e.preventDefault();
+      if (!currentGuest) return;
+      // Remplir le formulaire caché
+      const hiddenForm = document.getElementById("hidden-form");
+      hiddenForm.elements["name"].value = currentGuest.name;
+      hiddenForm.elements["email"].value = document.getElementById("email").value;
+      hiddenForm.elements["attendance"].value = attendanceStatus;
+      hiddenForm.elements["wish"].value = document.getElementById("wish").value;
+      // Soumission AJAX
+      fetch(hiddenForm.action, {
+        method: "POST",
+        headers: { "Accept": "application/json" },
+        body: new FormData(hiddenForm)
+      }).then(r => {
+        showPopup(translations[lang].popupSent);
+        document.getElementById("wish-form").classList.add("hidden");
+        currentGuest = null;
+        attendanceStatus = null;
+        document.getElementById("rsvp-form").reset();
+        document.getElementById("wish-form").reset();
+      });
+    };
+
+    // Popup logic
+    function showPopup(message) {
+      document.getElementById("popup-message").textContent = message;
+      document.getElementById("overlay").style.display = "block";
+      document.getElementById("popup").style.display = "block";
+      document.getElementById("close-popup").focus();
+    }
+    document.getElementById("close-popup").onclick = function() {
+      document.getElementById("overlay").style.display = "none";
+      document.getElementById("popup").style.display = "none";
+    };
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape" && document.getElementById("popup").style.display === "block") {
+        document.getElementById("overlay").style.display = "none";
+        document.getElementById("popup").style.display = "none";
+      }
+    });
+  </script>
+</body>
+</html>
