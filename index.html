@@ -131,7 +131,7 @@
   <script>
     const { jsPDF } = window.jspdf;
 
-    // Guest list
+    // Guest list (Alerte Louis added)
     const guests = [
       {name:"Moraima Lys Colimon", seats:1, family:["Moraima Lys Colimon"]},
       {name:"Phenite Thermilien", seats:1, family:["Phenite Thermilien"]},
@@ -179,8 +179,28 @@
       {name:"Emmanuella Moyo", seats:2, family:["Christian Moyo","Emmanuella Moyo"]},
       {name:"Yoletta Duthil", seats:1, family:["Yoletta Duthil"]},
       {name:"Claire Johnson", seats:1, family:["Claire Johnson"]},
-      {name:"Tatie Myrlande", seats:1, family:["Tatie Myrlande"]}
+      {name:"Tatie Myrlande", seats:1, family:["Tatie Myrlande"]},
+      {name:"Alerte Louis", seats:1, family:["Alerte Louis"]}
     ];
+
+    // Hotel suggestions
+    const hotels = [
+      "Hilton Garden Inn Foxborough Patriot Place: 27 patriot place, Foxboro, MA, 02035",
+      "Red Roof Inn Plus+ Boston - Mansfield/Foxboro: 60 Forbes Blvd, Mansfield, MA 02048",
+      "Comfort Inn and Suites Plainville – Foxboro: 164 Washington St, Plainville, MA, 02762",
+      "Best Western The Inn at Sharon / Foxboro: 395 Old Post Rd, Sharon, MA, 02067",
+      "Hampton Inn Boston – Norwood: 494 Providence Highway (Rt 1), Norwood, MA, 02062",
+      "Courtyard by Marriott Boston: 300 River Ridge Dr, Norwood, MA, 02062",
+      "Holiday Inn Express Brockton - Boston: 405 West Gate Dr, Brockton, MA, 02301",
+      "Hyatt Place Boston/Braintree: 50 Forbes Rd, Braintree, MA, 02184",
+      "Holiday Inn Express and Suites Boston South - Randolph by IHG: 60 Mazzeo Dr, Randolph, MA, 02368",
+      "Comfort Inn Randolph – Boston: 1374 N Main Street, Randolph, MA, 02368"
+    ];
+
+    // Wedding info
+    const weddingDate = "Sunday, December 28, 2025. At 3PM.";
+    const churchAddress = "Foxboro SDA Church\n308 Central St, Foxborough, MA 02035, USA";
+    const receptionAddress = "769 Washington St, Stoughton, MA 02072, USA";
 
     let currentGuest = null;
     let attendanceStatus = null;
@@ -277,13 +297,41 @@
         });
       }
 
+      // Wedding details
+      let y = 140;
+      doc.setFontSize(13);
+      doc.setTextColor(...burgundy);
+      doc.text("Wedding Details:", 20, y);
+
+      doc.setFontSize(12);
+      doc.setTextColor(0,0,0);
+      doc.text(`Date & Time: ${weddingDate}`, 20, y+12);
+      doc.text("Church Address:", 20, y+22);
+      doc.text(churchAddress, 25, y+30);
+      doc.text("Reception Address:", 20, y+42);
+      doc.text(receptionAddress, 25, y+50);
+
+      // Wishes
+      y += 65;
       if (wish.trim() !== "") {
         doc.setTextColor(...green);
-        doc.text("Message:", 20, 200);
+        doc.text("Your wishes:", 20, y);
         doc.setTextColor(0,0,0);
         doc.setFontSize(12);
-        doc.text(wish, 20, 210, {maxWidth:170});
+        doc.text(wish, 20, y+10, {maxWidth:170});
+        y += 20;
       }
+
+      // Hotels
+      doc.setFontSize(13);
+      doc.setTextColor(...burgundy);
+      doc.text("Hotel Suggestions (guests are responsible for their own booking):", 20, y+15);
+
+      doc.setFontSize(11);
+      doc.setTextColor(0,0,0);
+      hotels.forEach((h, i) => {
+        doc.text(`- ${h}`, 22, y+25 + i*7, {maxWidth:170});
+      });
 
       doc.save(`Reservation_${currentGuest.name}.pdf`);
     }
